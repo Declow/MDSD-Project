@@ -28,6 +28,14 @@ task goToShelf
 	endif
 endtask
 
+task thisTask
+	do myTask
+endtask
+
+task myTask
+	do thisTask
+endtask
+
 task driveShelf
 	pickup
 	if at TestShelf

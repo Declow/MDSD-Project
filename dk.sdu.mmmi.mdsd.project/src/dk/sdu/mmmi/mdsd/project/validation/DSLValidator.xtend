@@ -7,8 +7,13 @@ import dk.sdu.mmmi.mdsd.project.dSL.Shelf
 import org.eclipse.xtext.EcoreUtil2
 import dk.sdu.mmmi.mdsd.project.dSL.DSLPackage
 import org.eclipse.xtext.validation.Check
-import dk.sdu.mmmi.mdsd.project.dSL.Terminatable
 import dk.sdu.mmmi.mdsd.project.dSL.TaskTerminated
+import dk.sdu.mmmi.mdsd.project.dSL.Task
+import java.util.HashSet
+import dk.sdu.mmmi.mdsd.project.dSL.Action
+import dk.sdu.mmmi.mdsd.project.dSL.TaskItem
+import dk.sdu.mmmi.mdsd.project.dSL.Condition
+import dk.sdu.mmmi.mdsd.project.dSL.DoTask
 
 /**
  * This class contains custom validation rules. 
@@ -20,6 +25,7 @@ class DSLValidator extends AbstractDSLValidator {
 
 	public static val INVALID_NAME = 'Another shelf with the same name already exists';
 	public static val INVALID_TERMINATABLE = "Two terminatables handlers can't have the same name";
+	public static val CIRCULAR_REF = "Circular reference";
 	
 	@Check(FAST)
 	def checkNames(Shelf s) {
@@ -50,5 +56,44 @@ class DSLValidator extends AbstractDSLValidator {
 			}
 		}
 	}
+	
+	@Check(FAST)
+	def checkCirculerTasks(Task t) {
+		val set = new HashSet<Task>();
+		set.add(t)
+		if (taskCheck(t,set)) {
+			error(CIRCULAR_REF, DSLPackage.Literals.TASK__ITEMS);
+		}	
+	}
+	
+	def boolean taskCheck(Task t, HashSet<Task> set) {
+		
+		val itemsOfTask = t.items
+		
+		for (TaskItem ti : itemsOfTask) {
+			switch ti {
+				DoTask : 
+				if (set.contains(ti.task)) {
+					return true;
+				} else {
+					set.add(ti.task)
+					return taskCheck(ti.task, set);
+				}
+			}
+		}
+		return false
+	}
+	
+
+
+
+
+
+
+
+
+
+
+
 	
 }
