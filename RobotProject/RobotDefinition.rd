@@ -6,7 +6,7 @@ area ProductionFloor size 10 10
 		size 1 1
 	endobstacle
 	shelf TestShelf
-		pos 9 1
+		pos 8 1
 		property PhysicalWeight default 100
 	endshelf
 endarea
@@ -29,12 +29,16 @@ task goToShelf
 endtask
 
 task d
-	forward 10
+	if 5 = 5
+		forward 3
+	endif
 endtask
 
 task g
 	backward 0
-	forward 8
+	forward 7
+	
+	
 	if at TestShelf
 		terminate NotAtRightPlace
 	endif

@@ -26,16 +26,14 @@ import dk.sdu.mmmi.mdsd.project.dSL.Forward
 import dk.sdu.mmmi.mdsd.project.dSL.Backward
 import dk.sdu.mmmi.mdsd.project.dSL.Turn
 import dk.sdu.mmmi.mdsd.project.dSL.Retry
-import dk.sdu.mmmi.mdsd.project.dSL.Vector2
-import javax.swing.JOptionPane
 import dk.sdu.mmmi.mdsd.project.dSL.RightDir
 import dk.sdu.mmmi.mdsd.project.dSL.StateAt
 import dk.sdu.mmmi.mdsd.project.dSL.StatePickedUp
+import dk.sdu.mmmi.mdsd.project.dSL.Terminate
 import dk.sdu.mmmi.mdsd.project.dSL.Plus
 import dk.sdu.mmmi.mdsd.project.dSL.Minus
 import dk.sdu.mmmi.mdsd.project.dSL.Mult
 import dk.sdu.mmmi.mdsd.project.dSL.Div
-import dk.sdu.mmmi.mdsd.project.dSL.StateRetries
 import dk.sdu.mmmi.mdsd.project.dSL.Num
 import dk.sdu.mmmi.mdsd.project.dSL.Expression
 import dk.sdu.mmmi.mdsd.project.dSL.Equals
@@ -43,7 +41,6 @@ import dk.sdu.mmmi.mdsd.project.dSL.SmallerThan
 import dk.sdu.mmmi.mdsd.project.dSL.GreaterThan
 import dk.sdu.mmmi.mdsd.project.dSL.SmallerThanEquals
 import dk.sdu.mmmi.mdsd.project.dSL.GreaterThanEquals
-import dk.sdu.mmmi.mdsd.project.dSL.Terminate
 
 /**
  * This class contains custom validation rules. 
@@ -137,7 +134,7 @@ class DSLValidator extends AbstractDSLValidator {
 		val robots = p.robots
 		
 		for (Robot r : robots)
-			if (!checkValidPos( r))
+			if (!checkValidPos(r))
 				error(STARTING_POS_OUT_OF_BOUND, DSLPackage.Literals.PRODUCTION__ROBOTS)
 		
 	}
@@ -170,7 +167,7 @@ class DSLValidator extends AbstractDSLValidator {
 			for (var i = 0; i < taskItems.size; i++) {
 				var ti = taskItems.get(i)
 				switch ti {
-					//Pickup :
+					//Pickup : 
 					Forward : r.forward(ti, direction)
 					Backward : r.backward(ti, direction)
 					Turn : direction = r.turn(ti, direction)
@@ -184,7 +181,6 @@ class DSLValidator extends AbstractDSLValidator {
 						taskItems = insertItems(taskItems, taskCanTerminate.get(tasks.get(currentTask)), i);
 					}
 				}
-				System.out.println("dir: " + direction)
 			}
 			
 			currentTask++
@@ -224,8 +220,6 @@ class DSLValidator extends AbstractDSLValidator {
     
 	def forward(Robot r, Forward f, int direction) {
 		var ticks = f.amount
-		var oldX = r.startpoint.pos.x
-		var oldY = r.startpoint.pos.y
 		var pos = r.startpoint.pos
 		for (var i = 0; i < ticks; i++) {
 			switch direction {
@@ -243,8 +237,6 @@ class DSLValidator extends AbstractDSLValidator {
 	
 	def backward(Robot r, Backward f, int direction) {
 		var ticks = f.amount
-		var oldX = r.startpoint.pos.x
-		var oldY = r.startpoint.pos.y
 		var pos = r.startpoint.pos
 		for (var i = 0; i < ticks; i++) {
 			switch direction {
@@ -272,21 +264,36 @@ class DSLValidator extends AbstractDSLValidator {
 			if (state.statePickedUp) {
 				return c.tasks
 			}
+			dk.sdu.mmmi.mdsd.project.dSL.State:
+			if (state.compute2) {
+				return c.tasks
+			}
 		}
 		
 		if (c.^else !== null) {
 			return c.^else.tasks
-		} else {
-			return null
 		}
+		
+		new ArrayList<TaskItem>()
 	}
 	
 	def boolean statePickedUp(StatePickedUp s) {
 		return s.compute()
 	}
 	
+	def boolean compute2(dk.sdu.mmmi.mdsd.project.dSL.State exp) {
+		switch exp.sign {
+			Equals : if (exp.left.executeExp === exp.right.executeExp) return true
+			SmallerThan : if (exp.left.executeExp < exp.right.executeExp) return true
+			GreaterThan : if (exp.left.executeExp > exp.right.executeExp) return true
+			SmallerThanEquals : if (exp.left.executeExp <= exp.right.executeExp) return true
+			GreaterThanEquals : if (exp.left.executeExp >= exp.right.executeExp) return true
+		}
+		false;
+	}
+	
 	def boolean compute(StatePickedUp s) {
-		switch s {
+		switch s.sign {
 			Equals : if (s.prop.^default === s.right.executeExp) return true
 			SmallerThan : if (s.prop.^default < s.right.executeExp) return true
 			GreaterThan : if (s.prop.^default > s.right.executeExp) return true
@@ -316,7 +323,6 @@ class DSLValidator extends AbstractDSLValidator {
 		return false
 	}
 	
-	
 	def boolean checkValidPos(Robot r) {
 		val container = EcoreUtil2.getRootContainer(r)
 		val cand = EcoreUtil2.getAllContentsOfType(container, Area);
@@ -339,4 +345,5 @@ class DSLValidator extends AbstractDSLValidator {
 		
 		return true
 	}
+	
 }
