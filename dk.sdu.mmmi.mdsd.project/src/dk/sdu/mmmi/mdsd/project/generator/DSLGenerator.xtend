@@ -16,9 +16,6 @@ import com.google.inject.Inject
  * See https://www.eclipse.org/Xtext/documentation/303_runtime_concepts.html#code-generation
  */
 class DSLGenerator extends AbstractGenerator {
-
-	@Inject
-	IOutputConfigurationProvider config
 	
 	override void doGenerate(Resource resource, IFileSystemAccess2 fsa, IGeneratorContext context) {
 		fsa.generateFile('/src/robotdefinitionsample/robot.png', this.class.getResourceAsStream('files/robot.png'))
