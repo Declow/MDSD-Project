@@ -21,19 +21,20 @@ task goToShelf
 		turn left
 		forward 1
 		turn left
-		forward 2
+		forward 6
 		turn right
 	else
 		terminate NotAtRightPlace
 	endif
 endtask
 
-task thisTask
-	do myTask
+task d
+	forward 10
+	do driveShelf
 endtask
 
-task myTask
-	do thisTask
+task g
+	
 endtask
 
 task driveShelf
@@ -42,6 +43,10 @@ task driveShelf
 		if pickedUp PhysicalWeight < 130
 			turn left
 			backward 20
+			
+			if 10 = 4
+				do d
+			endif
 		else
 			terminate WeightTooHigh
 		endif

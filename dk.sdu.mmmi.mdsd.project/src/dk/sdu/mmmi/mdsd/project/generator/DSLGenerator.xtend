@@ -7,6 +7,8 @@ import org.eclipse.emf.ecore.resource.Resource
 import org.eclipse.xtext.generator.AbstractGenerator
 import org.eclipse.xtext.generator.IFileSystemAccess2
 import org.eclipse.xtext.generator.IGeneratorContext
+import org.eclipse.xtext.generator.IOutputConfigurationProvider
+import com.google.inject.Inject
 
 /**
  * Generates code from your model files on save.
@@ -15,8 +17,11 @@ import org.eclipse.xtext.generator.IGeneratorContext
  */
 class DSLGenerator extends AbstractGenerator {
 
+	@Inject
+	IOutputConfigurationProvider config
+	
 	override void doGenerate(Resource resource, IFileSystemAccess2 fsa, IGeneratorContext context) {
-		fsa.generateFile('/src/robotdefinitionsample/robot.png', this.class.getResourceAsStream('robot.png'))
+		fsa.generateFile('/src/robotdefinitionsample/robot.png', this.class.getResourceAsStream('files/robot.png'))
 		
 		new InterfaceGenerator(resource, fsa, context);
 		new GUIGenerator(resource, fsa, context);
@@ -25,6 +30,7 @@ class DSLGenerator extends AbstractGenerator {
 		new ProjectGenerator(resource, fsa, context);
 		new ExceptionGenerator(resource, fsa, context);
 		new MissionGeneratorGenerator(resource, fsa, context);
+		//new StaticFileGenerator(resource, fsa, context, config);
 	}
 
 }

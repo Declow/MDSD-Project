@@ -14,6 +14,9 @@ import dk.sdu.mmmi.mdsd.project.dSL.Action
 import dk.sdu.mmmi.mdsd.project.dSL.TaskItem
 import dk.sdu.mmmi.mdsd.project.dSL.Condition
 import dk.sdu.mmmi.mdsd.project.dSL.DoTask
+import dk.sdu.mmmi.mdsd.project.dSL.Mission
+import dk.sdu.mmmi.mdsd.project.dSL.MissionTask
+import java.util.List
 
 /**
  * This class contains custom validation rules. 
@@ -62,7 +65,7 @@ class DSLValidator extends AbstractDSLValidator {
 		val set = new HashSet<Task>();
 		set.add(t)
 		if (taskCheck(t,set)) {
-			error(CIRCULAR_REF, DSLPackage.Literals.TASK__ITEMS);
+			error(CIRCULAR_REF, DSLPackage.Literals.TASK__NAME);
 		}	
 	}
 	
@@ -71,29 +74,31 @@ class DSLValidator extends AbstractDSLValidator {
 		val itemsOfTask = t.items
 		
 		for (TaskItem ti : itemsOfTask) {
-			switch ti {
-				DoTask : 
-				if (set.contains(ti.task)) {
-					return true;
-				} else {
-					set.add(ti.task)
-					return taskCheck(ti.task, set);
-				}
-			}
+			if (taskItemCheck(ti, set))
+				return true
 		}
 		return false
 	}
 	
-
-
-
-
-
-
-
-
-
-
-
+	def boolean taskItemListCheck(List<TaskItem> t, HashSet<Task> set) {
+		for (TaskItem ti : t) {
+			if (taskItemCheck(ti, set))
+				return true
+		}
+		return false
+	}
 	
+	def boolean taskItemCheck(TaskItem ti, HashSet<Task> set) {
+		switch ti {
+			DoTask : 
+			if (set.contains(ti.task)) {
+				return true;
+			} else {
+				set.add(ti.task)
+				return taskCheck(ti.task, set);
+			}
+			Condition : return taskItemListCheck(ti.tasks, set)
+		}
+		return false
+	}
 }
