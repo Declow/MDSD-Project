@@ -10,13 +10,40 @@ import org.eclipse.xtext.validation.Check
 import dk.sdu.mmmi.mdsd.project.dSL.TaskTerminated
 import dk.sdu.mmmi.mdsd.project.dSL.Task
 import java.util.HashSet
-import dk.sdu.mmmi.mdsd.project.dSL.Action
 import dk.sdu.mmmi.mdsd.project.dSL.TaskItem
 import dk.sdu.mmmi.mdsd.project.dSL.Condition
 import dk.sdu.mmmi.mdsd.project.dSL.DoTask
-import dk.sdu.mmmi.mdsd.project.dSL.Mission
 import dk.sdu.mmmi.mdsd.project.dSL.MissionTask
 import java.util.List
+import dk.sdu.mmmi.mdsd.project.dSL.Production
+import dk.sdu.mmmi.mdsd.project.dSL.Area
+import dk.sdu.mmmi.mdsd.project.dSL.AreaItem
+import dk.sdu.mmmi.mdsd.project.dSL.Robot
+import dk.sdu.mmmi.mdsd.project.dSL.Obstacle
+import java.util.HashMap
+import java.util.ArrayList
+import dk.sdu.mmmi.mdsd.project.dSL.Forward
+import dk.sdu.mmmi.mdsd.project.dSL.Backward
+import dk.sdu.mmmi.mdsd.project.dSL.Turn
+import dk.sdu.mmmi.mdsd.project.dSL.Retry
+import dk.sdu.mmmi.mdsd.project.dSL.Vector2
+import javax.swing.JOptionPane
+import dk.sdu.mmmi.mdsd.project.dSL.RightDir
+import dk.sdu.mmmi.mdsd.project.dSL.StateAt
+import dk.sdu.mmmi.mdsd.project.dSL.StatePickedUp
+import dk.sdu.mmmi.mdsd.project.dSL.Plus
+import dk.sdu.mmmi.mdsd.project.dSL.Minus
+import dk.sdu.mmmi.mdsd.project.dSL.Mult
+import dk.sdu.mmmi.mdsd.project.dSL.Div
+import dk.sdu.mmmi.mdsd.project.dSL.StateRetries
+import dk.sdu.mmmi.mdsd.project.dSL.Num
+import dk.sdu.mmmi.mdsd.project.dSL.Expression
+import dk.sdu.mmmi.mdsd.project.dSL.Equals
+import dk.sdu.mmmi.mdsd.project.dSL.SmallerThan
+import dk.sdu.mmmi.mdsd.project.dSL.GreaterThan
+import dk.sdu.mmmi.mdsd.project.dSL.SmallerThanEquals
+import dk.sdu.mmmi.mdsd.project.dSL.GreaterThanEquals
+import dk.sdu.mmmi.mdsd.project.dSL.Terminate
 
 /**
  * This class contains custom validation rules. 
@@ -29,6 +56,9 @@ class DSLValidator extends AbstractDSLValidator {
 	public static val INVALID_NAME = 'Another shelf with the same name already exists';
 	public static val INVALID_TERMINATABLE = "Two terminatables handlers can't have the same name";
 	public static val CIRCULAR_REF = "Circular reference";
+	public static val STARTING_POS_OUT_OF_BOUND = "Robot position is invalid"
+	public static val INVALID_MOVE_FORWARD = "Invalid move forward: "
+	public static val INVALID_MOVE_BACKWARD = "Invalid move backward: "
 	
 	@Check(FAST)
 	def checkNames(Shelf s) {
@@ -100,5 +130,213 @@ class DSLValidator extends AbstractDSLValidator {
 			Condition : return taskItemListCheck(ti.tasks, set)
 		}
 		return false
+	}
+	
+	@Check(FAST)
+	def checkOutOfBounds(Production p) {
+		val robots = p.robots
+		
+		for (Robot r : robots)
+			if (!checkValidPos( r))
+				error(STARTING_POS_OUT_OF_BOUND, DSLPackage.Literals.PRODUCTION__ROBOTS)
+		
+	}
+	
+	@Check(NORMAL)
+	def constructMission(Robot r) {
+		val missionTasks = r.mission.tasks
+		
+		var tasks = new ArrayList<Task>
+		var taskCanTerminate = new HashMap<Task, List<TaskItem>>()
+		
+		for (MissionTask t : missionTasks) {
+			if (t.terminated !== null) {
+				taskCanTerminate.put(t.task, t.terminated.items)
+			}
+			tasks.add(t.task)
+		}
+		executeRobot(r, tasks, taskCanTerminate)
+		System.out.print("\n")
+		System.out.println(r.startpoint.pos.x + ", " + r.startpoint.pos.y)
+	}
+	
+	def executeRobot(Robot r, ArrayList<Task> tasks, HashMap<Task, List<TaskItem>> taskCanTerminate) {
+		var currentTask = 0
+		var taskItems = tasks.get(currentTask).items.toList
+		var direction = 0
+		var retry = true
+		
+		while (currentTask < tasks.size) {
+			for (var i = 0; i < taskItems.size; i++) {
+				var ti = taskItems.get(i)
+				switch ti {
+					//Pickup :
+					Forward : r.forward(ti, direction)
+					Backward : r.backward(ti, direction)
+					Turn : direction = r.turn(ti, direction)
+					Retry : if (retry) { currentTask = -2 retry = false } else {retry = true}
+					DoTask : taskItems = insertItems(taskItems, ti.task.items, i)
+					Condition : taskItems = insertItems(taskItems, r.condition(ti), i)
+					Terminate : 
+					if (!taskCanTerminate.containsKey(tasks.get(currentTask))) {
+						error("Task terminated not caught" + ti.name, DSLPackage.Literals.ROBOT__MISSION)
+					} else {
+						taskItems = insertItems(taskItems, taskCanTerminate.get(tasks.get(currentTask)), i);
+					}
+				}
+				System.out.println("dir: " + direction)
+			}
+			
+			currentTask++
+		}
+	}
+	
+	def List<TaskItem> insertItems(List<TaskItem> lst, List<TaskItem> lst2, int currentTask) {
+		var cur = currentTask+1;
+		for (var i = 0; i < lst2.size; i++) {
+			lst.add(cur + i, lst2.get(i))
+		}
+		lst
+	}
+	
+	private final int right = 0;
+    private final int up = 270;
+    private final int left = 180;
+    private final int down = 90;
+    
+    def turn(Robot r, Turn t, int direction) {
+    	var dir = t.direction
+    	switch dir {
+    		RightDir : switch direction {
+				case right : return down
+				case left : return up
+				case up : return right
+				case down : return left
+    		}
+    		default : switch direction {
+				case right : return up
+				case left : return down
+				case up : return left
+				case down : return right
+    		}
+    	}
+    }
+    
+	def forward(Robot r, Forward f, int direction) {
+		var ticks = f.amount
+		var oldX = r.startpoint.pos.x
+		var oldY = r.startpoint.pos.y
+		var pos = r.startpoint.pos
+		for (var i = 0; i < ticks; i++) {
+			switch direction {
+				case direction == right : pos.x = pos.x + 1
+				case direction == left : pos.x = pos.x - 1
+				case direction == up : pos.y = pos.y - 1
+				case direction == down : pos.y = pos.y + 1
+			}
+			r.startpoint.pos = pos
+			if (!r.checkValidPos) {
+				error(INVALID_MOVE_FORWARD + f.amount, DSLPackage.Literals.ROBOT__MISSION)
+			}
+		}
+	}
+	
+	def backward(Robot r, Backward f, int direction) {
+		var ticks = f.amount
+		var oldX = r.startpoint.pos.x
+		var oldY = r.startpoint.pos.y
+		var pos = r.startpoint.pos
+		for (var i = 0; i < ticks; i++) {
+			switch direction {
+				case right : pos.x = pos.x-1 
+				case left : pos.x = pos.x+ 1
+				case up : pos.y = pos.y+ 1
+				case down : pos.y = pos.y - 1
+			}
+			r.startpoint.pos = pos
+			if (!r.checkValidPos) {
+				error(INVALID_MOVE_BACKWARD + f.amount, DSLPackage.Literals.ROBOT__MISSION)
+			}
+		}
+	}
+	
+	def List<TaskItem> condition(Robot r, Condition c) {
+		
+		var state = c.state
+		switch state {
+			StateAt : 
+			if (r.atShelf(state.shelf)) {
+				 return c.tasks
+			} 
+			StatePickedUp : 
+			if (state.statePickedUp) {
+				return c.tasks
+			}
+		}
+		
+		if (c.^else !== null) {
+			return c.^else.tasks
+		} else {
+			return null
+		}
+	}
+	
+	def boolean statePickedUp(StatePickedUp s) {
+		return s.compute()
+	}
+	
+	def boolean compute(StatePickedUp s) {
+		switch s {
+			Equals : if (s.prop.^default === s.right.executeExp) return true
+			SmallerThan : if (s.prop.^default < s.right.executeExp) return true
+			GreaterThan : if (s.prop.^default > s.right.executeExp) return true
+			SmallerThanEquals : if (s.prop.^default <= s.right.executeExp) return true
+			GreaterThanEquals : if (s.prop.^default >= s.right.executeExp) return true
+		}
+		false;
+	}
+	
+	def int executeExp(Expression exp) {
+		switch exp {
+			Plus: exp.left.executeExp + exp.right.executeExp
+			Minus: exp.left.executeExp - exp.right.executeExp
+			Mult: exp.left.executeExp * exp.right.executeExp
+			Div: exp.left.executeExp / exp.right.executeExp
+			Num: exp.value
+		}
+	}
+	
+	def boolean atShelf(Robot r, Shelf s) {
+		
+		val rx = r.startpoint.pos.x
+		val ry = r.startpoint.pos.y
+		if (rx === s.pos.x && ry === s.pos.y)
+			return true
+		
+		return false
+	}
+	
+	
+	def boolean checkValidPos(Robot r) {
+		val container = EcoreUtil2.getRootContainer(r)
+		val cand = EcoreUtil2.getAllContentsOfType(container, Area);
+		
+		//There is only one area
+		var area = cand.get(0)
+		
+		val rx = r.startpoint.pos.x
+		val ry = r.startpoint.pos.y
+		
+		for (AreaItem at : area.items) {
+			switch at {
+				Obstacle : if (at.pos.x === rx && at.pos.y === ry) return false
+			}
+		}
+		
+		//out of bound
+		if (rx < 0 || ry < 0 || rx >= area.size.x || ry >= area.size.y)
+			return false
+		
+		return true
 	}
 }

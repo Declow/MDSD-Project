@@ -6,7 +6,7 @@ area ProductionFloor size 10 10
 		size 1 1
 	endobstacle
 	shelf TestShelf
-		pos 0 2
+		pos 9 1
 		property PhysicalWeight default 100
 	endshelf
 endarea
@@ -30,11 +30,14 @@ endtask
 
 task d
 	forward 10
-	do driveShelf
 endtask
 
 task g
-	
+	backward 0
+	forward 8
+	if at TestShelf
+		terminate NotAtRightPlace
+	endif
 endtask
 
 task driveShelf
@@ -45,7 +48,7 @@ task driveShelf
 			backward 20
 			
 			if 10 = 4
-				do d
+				do g
 			endif
 		else
 			terminate WeightTooHigh
@@ -53,13 +56,24 @@ task driveShelf
 	endif
 endtask
 
-robot Rob1
-	startpoint 0 0
+robot r
+	startpoint 1 1
 	mission
-		goToShelf terminated {
+		g terminated {
 			NotAtRightPlace {
-				forward 4
+				do d
 			}
 		}
 	endmission
 endrobot
+
+/* 
+robot Rob1
+	startpoint 0 0
+	mission
+		goToShelf
+	endmission
+endrobot
+* 
+*/
+
