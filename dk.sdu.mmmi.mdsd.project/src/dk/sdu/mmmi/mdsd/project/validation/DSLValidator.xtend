@@ -41,6 +41,8 @@ import dk.sdu.mmmi.mdsd.project.dSL.SmallerThan
 import dk.sdu.mmmi.mdsd.project.dSL.GreaterThan
 import dk.sdu.mmmi.mdsd.project.dSL.SmallerThanEquals
 import dk.sdu.mmmi.mdsd.project.dSL.GreaterThanEquals
+import dk.sdu.mmmi.mdsd.project.dSL.Pickup
+import dk.sdu.mmmi.mdsd.project.dSL.Vector2
 
 /**
  * This class contains custom validation rules. 
@@ -154,7 +156,7 @@ class DSLValidator extends AbstractDSLValidator {
 		}
 		executeRobot(r, tasks, taskCanTerminate)
 		System.out.print("\n")
-		System.out.println(r.startpoint.pos.x + ", " + r.startpoint.pos.y)
+		System.out.println("Robot (" + r.startpoint.pos.x + ", " + r.startpoint.pos.y + ")")
 	}
 	
 	def executeRobot(Robot r, ArrayList<Task> tasks, HashMap<Task, List<TaskItem>> taskCanTerminate) {
@@ -162,36 +164,52 @@ class DSLValidator extends AbstractDSLValidator {
 		var taskItems = tasks.get(currentTask).items.toList
 		var direction = 0
 		var retry = true
+		var Shelf s = null
 		
 		while (currentTask < tasks.size) {
 			for (var i = 0; i < taskItems.size; i++) {
 				var ti = taskItems.get(i)
 				switch ti {
-					//Pickup : 
-					Forward : r.forward(ti, direction)
-					Backward : r.backward(ti, direction)
+					Pickup : s = r.pickupShelf
+					Forward : r.forward(ti, direction, s)
+					Backward : r.backward(ti, direction, s)
 					Turn : direction = r.turn(ti, direction)
 					Retry : if (retry) { currentTask = -2 retry = false } else {retry = true}
 					DoTask : taskItems = insertItems(taskItems, ti.task.items, i)
 					Condition : taskItems = insertItems(taskItems, r.condition(ti), i)
 					Terminate : 
 					if (!taskCanTerminate.containsKey(tasks.get(currentTask))) {
-						error("Task terminated not caught" + ti.name, DSLPackage.Literals.ROBOT__MISSION)
+						error("Task terminated not caught " + ti.name, DSLPackage.Literals.ROBOT__MISSION)
 					} else {
 						taskItems = insertItems(taskItems, taskCanTerminate.get(tasks.get(currentTask)), i);
 					}
+				}
+				if (s !== null) {
+					s.pos.x = r.startpoint.pos.x
+					s.pos.y = r.startpoint.pos.y	
 				}
 			}
 			
 			currentTask++
 		}
+		if (s !== null)
+			System.out.println("Shelf (" + s.pos.x + ", " + s.pos.y + ")")
+	}
+	
+	def pickupShelf(Robot r) {
+		val container = EcoreUtil2.getRootContainer(r)
+		val cand = EcoreUtil2.getAllContentsOfType(container, Shelf);
+		val rPos = r.startpoint.pos
+		for (Shelf s : cand) {
+			if (s.pos.x === rPos.x && s.pos.y === rPos.y)
+				return s
+		}
+		null
 	}
 	
 	def List<TaskItem> insertItems(List<TaskItem> lst, List<TaskItem> lst2, int currentTask) {
 		var cur = currentTask+1;
-		for (var i = 0; i < lst2.size; i++) {
-			lst.add(cur + i, lst2.get(i))
-		}
+		lst.addAll(cur, lst2)
 		lst
 	}
 	
@@ -218,7 +236,7 @@ class DSLValidator extends AbstractDSLValidator {
     	}
     }
     
-	def forward(Robot r, Forward f, int direction) {
+	def forward(Robot r, Forward f, int direction, Shelf s) {
 		var ticks = f.amount
 		var pos = r.startpoint.pos
 		for (var i = 0; i < ticks; i++) {
@@ -235,7 +253,7 @@ class DSLValidator extends AbstractDSLValidator {
 		}
 	}
 	
-	def backward(Robot r, Backward f, int direction) {
+	def backward(Robot r, Backward f, int direction, Shelf s) {
 		var ticks = f.amount
 		var pos = r.startpoint.pos
 		for (var i = 0; i < ticks; i++) {
@@ -258,9 +276,10 @@ class DSLValidator extends AbstractDSLValidator {
 		switch state {
 			StateAt : 
 			if (r.atShelf(state.shelf)) {
-				 return c.tasks
+				return c.tasks
 			} 
-			StatePickedUp : 
+			StatePickedUp :
+			
 			if (state.statePickedUp) {
 				return c.tasks
 			}
